@@ -9,9 +9,9 @@ from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import KFold
 import json
 
-#############################
+ 
 # Model Definition (Matches Training)
-#############################
+ 
 class MLP(nn.Module):
     def __init__(self, input_dim):
         super(MLP, self).__init__()
@@ -34,9 +34,9 @@ class MLP(nn.Module):
         x = self.dropout(x)
         return self.fc4(x)
 
-#############################
+ 
 # Data Loading for Testing
-#############################
+ 
 def load_test_data(test_path, target_column):
     data = pd.read_csv(test_path)
     print("Test CSV Columns:", data.columns.tolist())
@@ -53,9 +53,9 @@ def create_test_loader(X, y, batch_size=64):
     dataset = TensorDataset(X, y)
     return DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
-#############################
+ 
 # Evaluation Functions
-#############################
+ 
 def evaluate_model(model, test_loader):
     model.eval()
     criterion = nn.BCEWithLogitsLoss()
@@ -131,9 +131,9 @@ def load_and_evaluate(model_path, test_path, target_column, batch_size=64):
     print(f"\n--- Evaluating Model from {model_path} for target '{target_column}' ---")
     comprehensive_evaluation(model, test_loader, target_column, group_size=10)
 
-#############################
+ 
 # Main Evaluation Execution
-#############################
+ 
 if __name__ == "__main__":
     import json
     from sklearn.metrics import confusion_matrix, classification_report
