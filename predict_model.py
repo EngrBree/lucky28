@@ -5,9 +5,9 @@ import pandas as pd
 import numpy as np
 import json
 
-##################################
-# Model Definition (Same as Training)
-##################################
+  
+# Model Definition (Same as in Training)
+  
 class MLP(nn.Module):
     def __init__(self, input_dim):
         super(MLP, self).__init__()
@@ -30,13 +30,13 @@ class MLP(nn.Module):
         x = self.dropout(x)
         return self.fc4(x)
 
-##################################
+  
 # Data Preparation Functions
-##################################
+  
 def load_latest_draws(csv_path, num_rows=20):
     """
     Load the last num_rows from test.csv.
-    Since there's no timestamp, we assume rows are in chronological order.
+    Since no timestamp is present, we assume the rows are in chronological order.
     """
     df = pd.read_csv(csv_path)
     latest_df = df.tail(num_rows).reset_index(drop=True)
@@ -44,14 +44,14 @@ def load_latest_draws(csv_path, num_rows=20):
 
 def prepare_features(df, target_column):
     """
-    Drop the target column from the dataframe and convert remaining features to a tensor.
+    Drop the target column from the DataFrame and convert the remaining data to a tensor.
     """
     X = df.drop(columns=[target_column]).values
     return torch.tensor(X, dtype=torch.float32)
 
-##################################
-# Prediction Function
-##################################
+  
+# Prediction Functions
+  
 def make_predictions(model, data):
     """
     Run the model on data and return both binary predictions and probabilities.
@@ -62,50 +62,61 @@ def make_predictions(model, data):
         predictions = (probabilities >= 0.5).astype(int)
     return predictions, probabilities
 
-def predict_latest_draws(test_csv="test.csv", num_latest=20, odd_even_target="odd_even_1", big_small_target="big_small_1", threshold=0.7):
-    # Load the latest 20 draws from test.csv
+def predict_latest_draws(test_csv="test.csv", num_latest=20,
+                         odd_even_target="odd_even_1", big_small_target="big_small_1",
+                         threshold=0.7):
+    # Load the latest 20 draws
     latest_df = load_latest_draws(test_csv, num_rows=num_latest)
     
-    # Prepare input features for each model by dropping the respective target column
+    # Prepare features for both models (drop the corresponding target column)
     X_oe = prepare_features(latest_df, target_column=odd_even_target)
     X_bs = prepare_features(latest_df, target_column=big_small_target)
     
-    # Determine input dimension (should be the same for both models)
+    # Determine input dimension (should be same for both models)
     input_dim = X_oe.shape[1]
+    
+    # Define model paths
+    odd_even_model_path = "model_odd_even_trained.pth"
+    big_small_model_path = "model_big_small_trained.pth"
     
     # Load trained models
     odd_even_model = MLP(input_dim=input_dim)
     big_small_model = MLP(input_dim=input_dim)
-    odd_even_model.load_state_dict(torch.load("model_odd_even_trained.pth", map_location=torch.device("cpu")))
-    big_small_model.load_state_dict(torch.load("model_big_small_trained.pth", map_location=torch.device("cpu")))
+    odd_even_model.load_state_dict(torch.load(odd_even_model_path, map_location=torch.device("cpu")))
+    big_small_model.load_state_dict(torch.load(big_small_model_path, map_location=torch.device("cpu")))
     odd_even_model.eval()
     big_small_model.eval()
     
-    # Make predictions using both models
+    # Make predictions
     odd_even_preds, p_oe = make_predictions(odd_even_model, X_oe)
     big_small_preds, p_bs = make_predictions(big_small_model, X_bs)
     
     final_results = []
     for i in range(num_latest):
-        # Convert probabilities to Python float to avoid JSON serialization issues
+        # Ensure probabilities are Python floats
         prob_oe = float(p_oe[i])
         prob_bs = float(p_bs[i])
         conf_oe = abs(prob_oe - 0.5)
         conf_bs = abs(prob_bs - 0.5)
         
-        # Determine model predictions: Odd/Even and Big/Small
+        # Determine individual model predictions
         pred_oe = "Odd" if prob_oe >= 0.5 else "Even"
         pred_bs = "Big" if prob_bs >= 0.5 else "Small"
         
-        # Choose final prediction based on which model has higher confidence
-        if conf_oe > conf_bs:
+        # Refined decision logic:
+        if prob_bs >= 0.99 and 0.45 <= prob_oe <= 0.55:
             final_pred = pred_oe
             chosen_model = "Odd/Even"
             final_conf = conf_oe
         else:
-            final_pred = pred_bs
-            chosen_model = "Big/Small"
-            final_conf = conf_bs
+            if conf_oe >= conf_bs:
+                final_pred = pred_oe
+                chosen_model = "Odd/Even"
+                final_conf = conf_oe
+            else:
+                final_pred = pred_bs
+                chosen_model = "Big/Small"
+                final_conf = conf_bs
         
         recommended = "Yes" if final_conf >= threshold else "No"
         
@@ -134,8 +145,8 @@ def predict_latest_draws(test_csv="test.csv", num_latest=20, odd_even_target="od
     
     return results_df
 
-##################################
+  
 # Main Execution
-##################################
+  
 if __name__ == "__main__":
     predict_latest_draws()
