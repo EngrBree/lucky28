@@ -15,33 +15,52 @@ from sklearn.model_selection import KFold
 def load_data(file_path):
     df = pd.read_csv(file_path)
     df['code'] = df['code'].apply(ast.literal_eval)
+    
+    # Extract individual numbers
     df['num1'] = df['code'].apply(lambda x: int(x[0]))
     df['num2'] = df['code'].apply(lambda x: int(x[1]))
     df['num3'] = df['code'].apply(lambda x: int(x[2]))
+    
+    # Compute sum and derived features
     df['sum'] = df['num1'] + df['num2'] + df['num3']
-    df['odd_even'] = df['sum'] % 2             # 0 = Even, 1 = Odd
+    df['odd_even'] = df['sum'] % 2  # 0 = Even, 1 = Odd
     df['big_small'] = (df['sum'] >= 14).astype(int)  # 0 = Small, 1 = Big
+
+    # Rolling mean of sum (captures trends)
     df['rolling_sum_mean'] = df['sum'].rolling(window=3, min_periods=1).mean()
+    
+    # Lag features (previous round’s sum and classifications)
     df['lag1_sum'] = df['sum'].shift(1)
     df['lag1_odd_even'] = df['odd_even'].shift(1)
     df['lag1_big_small'] = df['big_small'].shift(1)
-    return df[['num1', 'num2', 'num3', 'sum', 'rolling_sum_mean', 'lag1_sum',
-               'odd_even', 'big_small', 'lag1_odd_even', 'lag1_big_small']]
 
+    # Difference between consecutive numbers (new features)
+    df['diff1'] = df['num1'] - df['num2']
+    df['diff2'] = df['num2'] - df['num3']
+
+    # Handle missing values (for lagged and rolling features)
+    missing_cols = ['rolling_sum_mean', 'lag1_sum', 'lag1_odd_even', 'lag1_big_small']
+    df[missing_cols] = df[missing_cols].fillna(df[missing_cols].median())
+
+    return df[['num1', 'num2', 'num3', 'sum', 'rolling_sum_mean', 'lag1_sum',
+               'odd_even', 'big_small', 'lag1_odd_even', 'lag1_big_small', 'diff1', 'diff2']]
+
+# Load data
 data_file = "newlucky28.csv"
 df = load_data(data_file)
-missing_cols = ['rolling_sum_mean', 'lag1_sum', 'lag1_odd_even', 'lag1_big_small']
-df[missing_cols] = df[missing_cols].fillna(df[missing_cols].median())
 
 # Split data (80% train, 20% test; ensure at least 100 draws in test set, chronological order)
 test_size = max(0.2, 100 / len(df))
 train_df, test_df = train_test_split(df, test_size=test_size, random_state=42, shuffle=False)
 
-# Scale numerical features
+# Fit scaler only on train set
+# Update the numerical features list
+numerical_features = ['sum', 'rolling_sum_mean', 'lag1_sum', 'diff1', 'diff2']
+
+
 scaler = StandardScaler()
-numerical_features = ['sum', 'rolling_sum_mean', 'lag1_sum']
 train_df[numerical_features] = scaler.fit_transform(train_df[numerical_features])
-test_df[numerical_features] = scaler.transform(test_df[numerical_features])
+test_df[numerical_features] = scaler.transform(test_df[numerical_features])  # Transform only
 
 # One-Hot Encode categorical features
 categorical_features = ['odd_even', 'big_small', 'lag1_odd_even', 'lag1_big_small']
@@ -56,6 +75,10 @@ test_df = pd.concat([test_df.drop(columns=categorical_features).reset_index(drop
 
 train_df.to_csv("train.csv", index=False)
 test_df.to_csv("test.csv", index=False)
+
+
+train_df = pd.read_csv("train.csv")
+print(train_df["big_small_1"].value_counts())  # See if one class dominates
 
 
 # PyTorch Dataset & DataLoader
@@ -82,7 +105,7 @@ print("Columns in train.csv:", pd.read_csv("train.csv").columns.tolist())
 # Model Definition
 
 class MLP(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_dim=11): 
         super(MLP, self).__init__()
         self.fc1 = nn.Linear(input_dim, 128)
         self.bn1 = nn.BatchNorm1d(128)
@@ -90,10 +113,10 @@ class MLP(nn.Module):
         self.bn2 = nn.BatchNorm1d(64)
         self.fc3 = nn.Linear(64, 16)
         self.bn3 = nn.BatchNorm1d(16)
-        self.fc4 = nn.Linear(16, 1)  # Raw logits
-        self.dropout = nn.Dropout(0.2)  # Reduced dropout
+        self.fc4 = nn.Linear(16, 1)  
+        self.dropout = nn.Dropout(0.5) 
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.01)
-    
+
     def forward(self, x):
         x = self.leaky_relu(self.bn1(self.fc1(x)))
         x = self.dropout(x)
@@ -102,7 +125,6 @@ class MLP(nn.Module):
         x = self.leaky_relu(self.bn3(self.fc3(x)))
         x = self.dropout(x)
         return self.fc4(x)
-
 
 # Training & Evaluation Functions
 
@@ -127,15 +149,22 @@ def create_dataloader_from_tensors(X, y, batch_size):
     dataset = TensorDataset(X, y)
     return DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-def train_model(train_path, test_path, target_column, model_path, model, epochs=50, batch_size=64, lr=0.001, weight_decay=5e-4, patience=7):
+def train_model(train_path, test_path, target_column, model_path, model, epochs=50, batch_size=64, lr=0.001, weight_decay=1e-3, patience=7):
     X_train, y_train, X_val, y_val, X_test, y_test = load_data_for_training(train_path, test_path, target_column)
     train_loader = create_dataloader_from_tensors(X_train, y_train, batch_size)
     val_loader = create_dataloader_from_tensors(X_val, y_val, batch_size)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    best_loss, patience_counter = float('inf'), 0
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+
+
+    best_loss = float('inf')
+    patience_counter = 0
+    best_model_state = None  # Store the best model state
+    
     device = torch.device("cpu")
     model.to(device)
+    
     for epoch in range(epochs):
         model.train()
         epoch_loss = 0
@@ -146,22 +175,33 @@ def train_model(train_path, test_path, target_column, model_path, model, epochs=
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
+            scheduler.step()
+        
+        # Validation
         model.eval()
         val_loss = 0
         with torch.no_grad():
             for X_val_batch, y_val_batch in val_loader:
                 val_loss += criterion(model(X_val_batch).view(-1), y_val_batch.view(-1)).item()
         val_loss /= len(val_loader)
+
         print(f"Epoch {epoch+1}, Training Loss: {epoch_loss/len(train_loader):.4f}, Validation Loss: {val_loss:.4f}")
+        
+        # Save best model
         if val_loss < best_loss:
-            best_loss, patience_counter = val_loss, 0
+            best_loss = val_loss
+            patience_counter = 0
+            best_model_state = model.state_dict()  # Store best model
             torch.save(model.state_dict(), model_path)
         else:
             patience_counter += 1
             if patience_counter >= patience:
-                print("Early stopping triggered.")
+                print("Early stopping triggered. Restoring best model.")
+                model.load_state_dict(best_model_state)  # Restore best model
                 break
+
     return model
+
 
 def evaluate_model(model, test_loader):
     model.eval()
@@ -265,14 +305,14 @@ def cross_validate_big_small(train_file, target_column, n_splits=5, epochs=50, b
 # Training Functions
 
 def train_odd_even():
-    model = MLP(input_dim=9)
+    model = MLP(input_dim=11)
     train_model("train.csv", "test.csv", "odd_even_1", "model_odd_even_trained.pth", model, epochs=50, batch_size=64, lr=0.001, weight_decay=5e-4, patience=7)
     X_train, y_train, X_val, y_val, X_test, y_test = load_data_for_training("train.csv", "test.csv", "odd_even_1")
     test_loader = create_dataloader_from_tensors(X_test, y_test, 64)
     evaluate_model(model, test_loader)
 
 def train_big_small():
-    model = MLP(input_dim=9)
+    model = MLP(input_dim=11)
     train_model("train.csv", "test.csv", "big_small_1", "model_big_small_trained.pth", model, epochs=50, batch_size=64, lr=0.001, weight_decay=5e-4, patience=7)
     X_train, y_train, X_val, y_val, X_test, y_test = load_data_for_training("train.csv", "test.csv", "big_small_1")
     test_loader = create_dataloader_from_tensors(X_test, y_test, 64)
@@ -285,7 +325,7 @@ if __name__ == "__main__":
 
 # Final Prediction Function
 
-def final_prediction(input_vector, odd_even_model_path, big_small_model_path, input_dim=9):
+def final_prediction(input_vector, odd_even_model_path, big_small_model_path, input_dim=11):
     model_oe = MLP(input_dim=input_dim)
     model_bs = MLP(input_dim=input_dim)
     model_oe.load_state_dict(torch.load(odd_even_model_path, map_location=torch.device('cpu')))
