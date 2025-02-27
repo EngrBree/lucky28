@@ -41,7 +41,7 @@ class LotteryDataset(TensorDataset):
         super().__init__(X, y)
 
 
-def get_dataloaders(train_file, test_file, target_column, batch_size=64):
+def get_dataloaders(train_file, test_file, target_column, batch_size=32):
     train_dataset = LotteryDataset(train_file, target_column)
     test_dataset = LotteryDataset(test_file, target_column)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
@@ -52,7 +52,7 @@ def get_dataloaders(train_file, test_file, target_column, batch_size=64):
 train_file = "data/train.csv"
 test_file = "data/test.csv"
 target_column = "odd_even_1"
-batch_size = 128
+batch_size = 16
 
 train_loader, test_loader, train_dataset, test_dataset = get_dataloaders(train_file, test_file, target_column, batch_size)
 
