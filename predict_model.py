@@ -4,31 +4,16 @@ import torch.nn as nn
 import pandas as pd
 import numpy as np
 import json
+import os
+import sys
+# ✅ Ensure script can access model architecture
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.model_architecture import MLP  # Import your model
 
   
 # Model Definition (Same as in Training)
   
-class MLP(nn.Module):
-    def __init__(self, input_dim):
-        super(MLP, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 128)
-        self.bn1 = nn.BatchNorm1d(128)
-        self.fc2 = nn.Linear(128, 64)
-        self.bn2 = nn.BatchNorm1d(64)
-        self.fc3 = nn.Linear(64, 16)
-        self.bn3 = nn.BatchNorm1d(16)
-        self.fc4 = nn.Linear(16, 1)  # Raw logits for BCEWithLogitsLoss
-        self.dropout = nn.Dropout(0.2)
-        self.leaky_relu = nn.LeakyReLU(negative_slope=0.01)
-    
-    def forward(self, x):
-        x = self.leaky_relu(self.bn1(self.fc1(x)))
-        x = self.dropout(x)
-        x = self.leaky_relu(self.bn2(self.fc2(x)))
-        x = self.dropout(x)
-        x = self.leaky_relu(self.bn3(self.fc3(x)))
-        x = self.dropout(x)
-        return self.fc4(x)
+
 
   
 # Data Preparation Functions
@@ -76,8 +61,8 @@ def predict_latest_draws(test_csv="test.csv", num_latest=20,
     input_dim = X_oe.shape[1]
     
     # Define model paths
-    odd_even_model_path = "model_odd_even_trained.pth"
-    big_small_model_path = "model_big_small_trained.pth"
+    odd_even_model_path = "models/odd_even_model.pth"
+    big_small_model_path = "models/big_small_model.pth"
     
     # Load trained models
     odd_even_model = MLP(input_dim=input_dim)
