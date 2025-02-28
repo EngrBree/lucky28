@@ -78,8 +78,9 @@ def evaluate_model(model, test_loader):
 
 def group_accuracy(preds, targets, group_size=10):
     n = len(preds)
+    max_groups = 10  # ✅ Limit to 10 groups
     groups = [np.mean(preds[i:i+group_size] == targets[i:i+group_size])
-              for i in range(0, n, group_size)]
+              for i in range(0, min(n, max_groups * group_size), group_size)]
     return groups
 
 def comprehensive_evaluation(model, test_loader, target_column, group_size=10):
@@ -96,17 +97,10 @@ def comprehensive_evaluation(model, test_loader, target_column, group_size=10):
     }
     
     # Terminal display: truncate group output if too many groups
-    max_display = 10
-    if len(groups) > max_display:
-        display_groups = groups[:5] + ["..."] + groups[-5:]
-    else:
-        display_groups = groups
+  
     print("\nGroup-wise Accuracy (per 10 draws):")
-    for i, acc in enumerate(display_groups, start=1):
-        if isinstance(acc, str):
-            print(f"Group {i}: {acc}")
-        else:
-            print(f"Group {i}: {acc*100:.2f}%")
+    for i, acc in enumerate(groups, start=1):
+        print(f"Group {i}: {acc*100:.2f}%")
     
     print("\nConfusion Matrix:")
     print(confusion_matrix(targets, preds))
@@ -142,7 +136,7 @@ if __name__ == "__main__":
     load_and_evaluate("models/best_model.pth", "data/test.csv", "odd_even_1", batch_size=64)
     
     print("\n=== Evaluating Big/Small Model ===")
-    load_and_evaluate("models/big_model.pth", "data/test.csv", "big_small_1", batch_size=64)
+    load_and_evaluate("models/big_small_model.pth", "data/test.csv", "big_small_1", batch_size=64)
     
 
 

@@ -39,7 +39,7 @@ class LotteryDataset(TensorDataset):
         super().__init__(X, y)
 
 
-def get_dataloaders(train_file, test_file, target_column, batch_size=16):
+def get_dataloaders(train_file, test_file, target_column, batch_size=32):
     train_dataset = LotteryDataset(train_file, target_column)
     test_dataset = LotteryDataset(test_file, target_column)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
@@ -53,11 +53,12 @@ test_file = "data/test.csv"
 target_column = "big_small_1"
 batch_size = 8
 
+
 train_loader, test_loader, train_dataset, test_dataset = get_dataloaders(train_file, test_file, target_column, batch_size)
 
 # ✅ Define model, loss, optimizer
 input_dim = train_dataset.tensors[0].shape[1]  # Get input feature size
-model = MLP(input_dim=input_dim)
+model = MLP(input_dim=input_dim,dropout_rate=0.9)
 criterion = FocalLoss() # Binary classification loss
 optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=5e-3)
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)

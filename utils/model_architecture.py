@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dim):
+    def __init__(self, input_dim, dropout_rate=0.5):# default dropout
         super(MLP, self).__init__()
         self.fc1 = nn.Linear(input_dim, 64)
         self.bn1 = nn.BatchNorm1d(64)
@@ -14,7 +14,7 @@ class MLP(nn.Module):
         self.fc4 = nn.Linear(16, 1)  # Binary classification output
         
         # Increased dropout rate
-        self.dropout = nn.Dropout(0.7)  
+        self.dropout = nn.Dropout(dropout_rate)
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.01)
 
     def forward(self, x):
