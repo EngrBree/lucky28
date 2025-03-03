@@ -58,7 +58,8 @@ train_loader, test_loader, train_dataset, test_dataset = get_dataloaders(train_f
 
 # ✅ Define model, loss, optimizer
 input_dim = train_dataset.tensors[0].shape[1]  # Get input feature size
-model = MLP(input_dim=input_dim, dropout_rate=0.9)
+model = MLP(input_dim=input_dim, dropout_rate=0.7)
+
 criterion = FocalLoss() # Binary classification loss
 optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=5e-3)
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
