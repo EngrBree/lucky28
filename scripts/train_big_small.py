@@ -6,7 +6,6 @@ import os
 import sys
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import KFold
 
 # ✅ Ensure script can access model architecture
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -17,22 +16,17 @@ from utils.focal_loss import FocalLoss
 class LotteryDataset(TensorDataset):
     def __init__(self, file_path, target_column):
         data = pd.read_csv(file_path)
-
-        # ✅ Drop non-numeric columns (e.g., datetime)
-        data = data.select_dtypes(include=['number'])  # Keeps only numerical columns
+        data = data.select_dtypes(include=['number'])  # Drop non-numeric columns
         
-        # ✅ Ensure target column is included
         if target_column not in data.columns:
             raise ValueError(f"Target column '{target_column}' not found in dataset")
 
         X = data.drop(columns=[target_column]).values
         y = data[target_column].values.reshape(-1, 1)
 
-        # ✅ Scale numerical features
         scaler = StandardScaler()
         X = scaler.fit_transform(X)
 
-        # ✅ Convert to PyTorch tensors
         X = torch.tensor(X, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.float32)
 
@@ -46,28 +40,30 @@ def get_dataloaders(train_file, test_file, target_column, batch_size=32):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     return train_loader, test_loader, train_dataset, test_dataset
 
-# ✅ Ensure script runs correctly on Windows
-    # ✅ Load dataset (for Big-Small)
+
+# ✅ Load dataset
 train_file = "data/train.csv"
 test_file = "data/test.csv"
 target_column = "big_small_1"
 batch_size = 8
 
-
 train_loader, test_loader, train_dataset, test_dataset = get_dataloaders(train_file, test_file, target_column, batch_size)
 
 # ✅ Define model, loss, optimizer
-input_dim = train_dataset.tensors[0].shape[1]  # Get input feature size
-model = MLP(input_dim=input_dim,dropout_rate=0.9)
-criterion = FocalLoss() # Binary classification loss
-optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=5e-3)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
+input_dim = train_dataset.tensors[0].shape[1]
+model = MLP(input_dim=input_dim, dropout_rate=0.8)
+
+criterion = FocalLoss()  # Binary classification loss
+optimizer = optim.AdamW(model.parameters(), lr=0.01, weight_decay=5e-3)
+
+# ✅ Adaptive Learning Rate Scheduling
+onecycle_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005, steps_per_epoch=len(train_loader), epochs=50)
+plateau_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=3, verbose=True)
 
 
-
+# ✅ Early Stopping
 class EarlyStopping:
-    """Stops training if validation loss does not improve after a given patience."""
-    def __init__(self, patience=3, min_delta=0.0001):
+    def __init__(self, patience=5, min_delta=0.0001):
         self.patience = patience
         self.min_delta = min_delta
         self.best_loss = float('inf')
@@ -77,24 +73,21 @@ class EarlyStopping:
         if val_loss < self.best_loss - self.min_delta:
             self.best_loss = val_loss
             self.counter = 0
-            return False  # Continue training
+            return False
         else:
             self.counter += 1
             if self.counter >= self.patience:
                 print(f"⛔ Early stopping triggered! Best validation loss: {self.best_loss:.4f}")
-                return True  # Stop training
+                return True
         return False
 
 
-# ✅ Initialize Early Stopping & Learning Rate Scheduler
 early_stopping = EarlyStopping(patience=5, min_delta=0.0001)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
-
-# ✅ Initialize tracking variables
-best_loss = float('inf')
 
 # ✅ Train the model
 epochs = 50
+best_loss = float('inf')
+
 for epoch in range(epochs):
     model.train()
     epoch_loss = 0
@@ -120,29 +113,28 @@ for epoch in range(epochs):
     # ✅ Print training progress
     print(f"Epoch {epoch+1} | Training Loss: {epoch_loss / len(train_loader):.4f} | Validation Loss: {val_loss:.4f}")
 
-    # ✅ Step scheduler with validation loss
-    scheduler.step(val_loss)
+    # ✅ Step both schedulers
+    onecycle_scheduler.step()
+    plateau_scheduler.step(val_loss)
 
-    # ✅ Early stopping check
+    # ✅ Early stopping
     if early_stopping(val_loss):
-        break  # Stop training
+        break
 
     # ✅ Save the best model
     if val_loss < best_loss:
         best_loss = val_loss
-        torch.save(model.state_dict(), "models/big_model.pth")  
+        torch.save(model.state_dict(), "models/best_big_small_model.pth")
         print("✅ Best model saved!")
-
-
 
 # ✅ Save final model
 os.makedirs("models", exist_ok=True)
 torch.save(model.state_dict(), "models/big_small_model.pth")
 print("✅ Final Model Saved!")
 
-    # ✅ Evaluate the Model
+
+# ✅ Evaluate Model
 def evaluate_model(model, test_loader):
-    """Computes accuracy on the test set."""
     model.eval()
     correct, total = 0, 0
     with torch.no_grad():
@@ -151,10 +143,10 @@ def evaluate_model(model, test_loader):
             predictions = (torch.sigmoid(outputs) >= 0.5).float()
             correct += (predictions == y_batch.view(-1)).sum().item()
             total += y_batch.size(0)
-    
+
     accuracy = correct / total
     print(f"🎯 Test Accuracy: {accuracy:.4f}")
 
 
-# ✅ Run evaluation after training
+# ✅ Run evaluation
 evaluate_model(model, test_loader)

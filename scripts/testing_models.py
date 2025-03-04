@@ -133,7 +133,7 @@ if __name__ == "__main__":
     from sklearn.metrics import confusion_matrix, classification_report
     
     print("=== Evaluating Odd/Even Model ===")
-    load_and_evaluate("models/best_model.pth", "data/test.csv", "odd_even_1", batch_size=64)
+    load_and_evaluate("models/odd_even_model.pth", "data/test.csv", "odd_even_1", batch_size=64)
     
     print("\n=== Evaluating Big/Small Model ===")
     load_and_evaluate("models/big_small_model.pth", "data/test.csv", "big_small_1", batch_size=64)

@@ -7,13 +7,10 @@ import sys
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 
-
 # ✅ Ensure script can access model architecture
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.model_architecture import MLP  # Import your model
 from utils.focal_loss import FocalLoss
-
-
 
 # ✅ Define Dataset & DataLoader
 class LotteryDataset(TensorDataset):
@@ -40,7 +37,7 @@ class LotteryDataset(TensorDataset):
 
         super().__init__(X, y)
 
-
+# ✅ Load Data
 def get_dataloaders(train_file, test_file, target_column, batch_size=32):
     train_dataset = LotteryDataset(train_file, target_column)
     test_dataset = LotteryDataset(test_file, target_column)
@@ -56,19 +53,20 @@ batch_size = 16
 
 train_loader, test_loader, train_dataset, test_dataset = get_dataloaders(train_file, test_file, target_column, batch_size)
 
-# ✅ Define model, loss, optimizer
+# ✅ Define Model, Loss, Optimizer
 input_dim = train_dataset.tensors[0].shape[1]  # Get input feature size
-model = MLP(input_dim=input_dim, dropout_rate=0.7)
+model = MLP(input_dim=input_dim, dropout_rate=0.8)
 
-criterion = FocalLoss() # Binary classification loss
-optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=5e-3)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
+criterion = FocalLoss()
+optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=5e-3)  # ✅ Use AdamW for better weight decay handling
 
+# ✅ Cyclical Learning Rate Scheduler
+scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.01, steps_per_epoch=len(train_loader), epochs=50)
 
 # ✅ Define Early Stopping
 class EarlyStopping:
     """Stops training if validation loss does not improve after a given patience."""
-    def __init__(self, patience=3, min_delta=0.0001):
+    def __init__(self, patience=5, min_delta=0.0001):
         self.patience = patience
         self.min_delta = min_delta
         self.best_loss = float('inf')
@@ -86,15 +84,10 @@ class EarlyStopping:
                 return True  # Stop training
         return False
 
-
-# ✅ Initialize Early Stopping & Learning Rate Scheduler
+# ✅ Initialize Early Stopping
 early_stopping = EarlyStopping(patience=5, min_delta=0.0001)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
 
-# ✅ Initialize tracking variables
-best_loss = float('inf')
-
-# ✅ Train the model
+# ✅ Train the model with Adaptive Learning Rate
 epochs = 50
 for epoch in range(epochs):
     model.train()
@@ -106,6 +99,7 @@ for epoch in range(epochs):
         loss = criterion(outputs, y_batch.view(-1))
         loss.backward()
         optimizer.step()
+        scheduler.step()  # ✅ Update learning rate dynamically
         epoch_loss += loss.item()
 
     # ✅ Compute validation loss
@@ -121,25 +115,19 @@ for epoch in range(epochs):
     # ✅ Print training progress
     print(f"Epoch {epoch+1} | Training Loss: {epoch_loss / len(train_loader):.4f} | Validation Loss: {val_loss:.4f}")
 
-    # ✅ Step scheduler with validation loss
-    scheduler.step(val_loss)
-
     # ✅ Early stopping check
     if early_stopping(val_loss):
         break  # Stop training
 
     # ✅ Save the best model
-    if val_loss < best_loss:
-        best_loss = val_loss
+    if val_loss < early_stopping.best_loss:
         torch.save(model.state_dict(), "models/best_model.pth")  
         print("✅ Best model saved!")
-
 
 # ✅ Save final model
 os.makedirs("models", exist_ok=True)
 torch.save(model.state_dict(), "models/odd_even_model.pth")
 print("✅ Final Model Saved!")
-
 
 # ✅ Evaluate the Model
 def evaluate_model(model, test_loader):
@@ -155,7 +143,6 @@ def evaluate_model(model, test_loader):
     
     accuracy = correct / total
     print(f"🎯 Test Accuracy: {accuracy:.4f}")
-
 
 # ✅ Run evaluation after training
 evaluate_model(model, test_loader)
