@@ -1,137 +1,112 @@
-#!/usr/bin/env python
 import torch
-import torch.nn as nn
 import pandas as pd
 import numpy as np
-import json
-import os
-import sys
-# ✅ Ensure script can access model architecture
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.model_architecture import MLP  # Import your model
+import requests  # For fetching API data
+from datetime import datetime
 
-  
-# Model Definition (Same as in Training)
-  
+# Load models
+odd_even_model = torch.load("models/odd_even_model.pth")
+big_small_model = torch.load("models/big_small_model.pth")
 
+# Define API URL
+API_URL = "https://www.apigx.cn/history/code/pcdd.html"  # Replace with actual API
 
-  
-# Data Preparation Functions
-  
-def load_latest_draws(csv_path, num_rows=20):
+# Function to fetch real-time data
+def fetch_latest_draws():
     """
-    Load the last num_rows from test.csv.
-    Since no timestamp is present, we assume the rows are in chronological order.
+    Fetches real-time draw data from the API.
+    Returns a Pandas DataFrame formatted for prediction.
     """
-    df = pd.read_csv(csv_path)
-    latest_df = df.tail(num_rows).reset_index(drop=True)
-    return latest_df
+    try:
+        response = requests.get(API_URL)  # Fetch data
+        response.raise_for_status()  # Raise an error if request fails
+        
+        data = response.json()  # Convert response to JSON
+        draws = data.get("data", [])  # Extract relevant data
 
+        if not draws:
+            print("❌ No draws found in API response.")
+            return None
+
+        # Convert to DataFrame
+        df = pd.DataFrame(draws)
+
+        # Adjust column names based on actual API response
+        df = df.rename(columns={
+            "issue": "draw_id",
+            "code1": "draw_number1",
+            "code2": "draw_number2",
+            "code3": "draw_number3"
+        })
+
+        # Convert necessary columns to integers
+        df[["draw_number1", "draw_number2", "draw_number3"]] = df[["draw_number1", "draw_number2", "draw_number3"]].astype(int)
+
+        # Create target columns (these may need adjustments)
+        df["odd_even"] = (df["draw_number1"] + df["draw_number2"] + df["draw_number3"]) % 2  # 0 = Even, 1 = Odd
+        df["big_small"] = ((df["draw_number1"] + df["draw_number2"] + df["draw_number3"]) >= 14).astype(int)  # 0 = Small, 1 = Big
+        
+        return df
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error fetching data: {e}")
+        return None
+
+# Function to prepare features
 def prepare_features(df, target_column):
     """
-    Drop the target column from the DataFrame and convert the remaining data to a tensor.
+    Prepares input features by removing the target column.
     """
-    X = df.drop(columns=[target_column]).values
-    return torch.tensor(X, dtype=torch.float32)
+    X = df.drop(columns=[target_column])
+    return torch.tensor(X.to_numpy(), dtype=torch.float32)
 
-  
-# Prediction Functions
-  
-def make_predictions(model, data):
+# Function to make predictions
+def predict_latest_draws():
     """
-    Run the model on data and return both binary predictions and probabilities.
+    Fetches real-time data and makes predictions.
     """
-    with torch.no_grad():
-        outputs = model(data).view(-1)
-        probabilities = torch.sigmoid(outputs).numpy().flatten()
-        predictions = (probabilities >= 0.5).astype(int)
-    return predictions, probabilities
+    latest_df = fetch_latest_draws()  # Fetch data from API
+    if latest_df is None or latest_df.empty:
+        print("❌ No data available for prediction.")
+        return None
 
-def predict_latest_draws(test_csv="test.csv", num_latest=20,
-                         odd_even_target="odd_even_1", big_small_target="big_small_1",
-                         threshold=0.7):
-    # Load the latest 20 draws
-    latest_df = load_latest_draws(test_csv, num_rows=num_latest)
-    
-    # Prepare features for both models (drop the corresponding target column)
+    odd_even_target = "odd_even"
+    big_small_target = "big_small"
+
     X_oe = prepare_features(latest_df, target_column=odd_even_target)
     X_bs = prepare_features(latest_df, target_column=big_small_target)
-    
-    # Determine input dimension (should be same for both models)
-    input_dim = X_oe.shape[1]
-    
-    # Define model paths
-    odd_even_model_path = "models/odd_even_model.pth"
-    big_small_model_path = "models/big_small_model.pth"
-    
-    # Load trained models
-    odd_even_model = MLP(input_dim=input_dim)
-    big_small_model = MLP(input_dim=input_dim)
-    odd_even_model.load_state_dict(torch.load(odd_even_model_path, map_location=torch.device("cpu")))
-    big_small_model.load_state_dict(torch.load(big_small_model_path, map_location=torch.device("cpu")))
-    odd_even_model.eval()
-    big_small_model.eval()
-    
-    # Make predictions
-    odd_even_preds, p_oe = make_predictions(odd_even_model, X_oe)
-    big_small_preds, p_bs = make_predictions(big_small_model, X_bs)
-    
-    final_results = []
-    for i in range(num_latest):
-        # Ensure probabilities are Python floats
-        prob_oe = float(p_oe[i])
-        prob_bs = float(p_bs[i])
-        conf_oe = abs(prob_oe - 0.5)
-        conf_bs = abs(prob_bs - 0.5)
-        
-        # Determine individual model predictions
-        pred_oe = "Odd" if prob_oe >= 0.5 else "Even"
-        pred_bs = "Big" if prob_bs >= 0.5 else "Small"
-        
-        # Refined decision logic:
-        if prob_bs >= 0.99 and 0.45 <= prob_oe <= 0.55:
-            final_pred = pred_oe
-            chosen_model = "Odd/Even"
-            final_conf = conf_oe
-        else:
-            if conf_oe >= conf_bs:
-                final_pred = pred_oe
-                chosen_model = "Odd/Even"
-                final_conf = conf_oe
-            else:
-                final_pred = pred_bs
-                chosen_model = "Big/Small"
-                final_conf = conf_bs
-        
-        recommended = "Yes" if final_conf >= threshold else "No"
-        
-        result = {
-            "Draw Index": i + 1,
-            "sum": float(latest_df.loc[i, "sum"]),
-            "Odd/Even Prediction": pred_oe,
-            "Odd/Even Probability": float(round(prob_oe, 4)),
-            "Big/Small Prediction": pred_bs,
-            "Big/Small Probability": float(round(prob_bs, 4)),
-            "Final Estimated Result": final_pred,
-            "Chosen Model": chosen_model,
-            "Confidence": float(round(final_conf, 4)),
-            "Recommended Bet": recommended
-        }
-        final_results.append(result)
-    
-    results_df = pd.DataFrame(final_results)
-    print("Latest Predictions:")
-    print(results_df)
-    
-    results_df.to_csv("latest_predictions.csv", index=False)
-    with open("latest_predictions.json", "w") as f:
-        json.dump(final_results, f, indent=4)
-    print("Predictions saved to 'latest_predictions.csv' and 'latest_predictions.json'")
-    
-    return results_df
 
-  
-# Main Execution
-  
+    # Predictions
+    oe_logits = odd_even_model(X_oe)
+    bs_logits = big_small_model(X_bs)
+    
+    oe_probs = torch.softmax(oe_logits, dim=1)
+    bs_probs = torch.softmax(bs_logits, dim=1)
+    
+    oe_pred = torch.argmax(oe_probs, dim=1).numpy()
+    bs_pred = torch.argmax(bs_probs, dim=1).numpy()
+    
+    # Confidence scores
+    oe_confidence = (oe_probs.max(dim=1).values * 100).numpy()
+    bs_confidence = (bs_probs.max(dim=1).values * 100).numpy()
+    
+    # Convert predictions to labels
+    oe_labels = ["Even" if pred == 0 else "Odd" for pred in oe_pred]
+    bs_labels = ["Small" if pred == 0 else "Big" for pred in bs_pred]
+    
+    # Create DataFrame
+    results = pd.DataFrame({
+        "Draw Time": [datetime.now().strftime("%H:%M:%S") for _ in range(len(latest_df))],
+        "Odd/Even (Prediction & Accuracy %)": [f"Prediction: {oe_labels[i]} ({oe_confidence[i]:.0f}%)" for i in range(len(oe_labels))],
+        "Big/Small (Prediction & Accuracy %)": [f"Prediction: {bs_labels[i]} ({bs_confidence[i]:.0f}%)" for i in range(len(bs_labels))],
+        "Final Estimated Result": [f"Prediction: {oe_labels[i] if oe_confidence[i] > bs_confidence[i] else bs_labels[i]} ({max(oe_confidence[i], bs_confidence[i]):.0f}%)" for i in range(len(oe_labels))],
+        "Recommended Bet": ["Yes" if max(oe_confidence[i], bs_confidence[i]) >= 70 else "No" for i in range(len(oe_labels))]
+    })
+    
+    return results
+
+# Run real-time prediction
 if __name__ == "__main__":
-    predict_latest_draws()
+    predictions = predict_latest_draws()
+    if predictions is not None:
+        print(predictions)
