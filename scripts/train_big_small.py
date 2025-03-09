@@ -4,62 +4,57 @@ import torch.optim as optim
 import pandas as pd
 import os
 import sys
+import time
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
+import numpy as np
 
-# ✅ Ensure script can access model architecture
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from utils.model_architecture import MLP  # Import your model
+from utils.model_architecture import MLP
 from utils.focal_loss import FocalLoss
 
-# ✅ Define Dataset & DataLoader
-class LotteryDataset(TensorDataset):
-    def __init__(self, file_path, target_column):
-        data = pd.read_csv(file_path)
-        data = data.select_dtypes(include=['number'])  # Drop non-numeric columns
-        
-        if target_column not in data.columns:
-            raise ValueError(f"Target column '{target_column}' not found in dataset")
+# ✅ Define Dataset Loader
 
-        X = data.drop(columns=[target_column]).values
-        y = data[target_column].values.reshape(-1, 1)
+def get_dataloaders(historical_train, historical_test, realtime_file, target_column, batch_size=32):
+    train_data = pd.read_csv(historical_train)
+    try:
+        realtime_data = pd.read_csv(realtime_file)
+        train_data = pd.concat([train_data, realtime_data], ignore_index=True)
+    except FileNotFoundError:
+        print("⚠️ No real-time data found. Training on historical data only.")
 
-        scaler = StandardScaler()
-        X = scaler.fit_transform(X)
+    test_data = pd.read_csv(historical_test)
 
-        X = torch.tensor(X, dtype=torch.float32)
-        y = torch.tensor(y, dtype=torch.float32)
+    train_data = train_data.select_dtypes(include=['number'])
+    test_data = test_data.select_dtypes(include=['number'])
 
-        super().__init__(X, y)
+    if target_column not in train_data.columns or target_column not in test_data.columns:
+        raise ValueError(f"Target column '{target_column}' not found in dataset")
 
+    missing_cols = set(train_data.columns) - set(test_data.columns)
+    for col in missing_cols:
+        test_data[col] = 0
+    test_data = test_data[train_data.columns]
 
-def get_dataloaders(train_file, test_file, target_column, batch_size=32):
-    train_dataset = LotteryDataset(train_file, target_column)
-    test_dataset = LotteryDataset(test_file, target_column)
+    X_train = train_data.drop(columns=[target_column]).values
+    y_train = train_data[target_column].values.reshape(-1, 1)
+    X_test = test_data.drop(columns=[target_column]).values
+    y_test = test_data[target_column].values.reshape(-1, 1)
+
+    X_train = np.nan_to_num(X_train)
+    X_test = np.nan_to_num(X_test)
+
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    train_dataset = TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32))
+    test_dataset = TensorDataset(torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test, dtype=torch.float32))
+
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+
     return train_loader, test_loader, train_dataset, test_dataset
-
-
-# ✅ Load dataset
-train_file = "data/train.csv"
-test_file = "data/test.csv"
-target_column = "big_small_1"
-batch_size = 8
-
-train_loader, test_loader, train_dataset, test_dataset = get_dataloaders(train_file, test_file, target_column, batch_size)
-
-# ✅ Define model, loss, optimizer
-input_dim = train_dataset.tensors[0].shape[1]
-model = MLP(input_dim=input_dim, dropout_rate=0.8)
-
-criterion = FocalLoss()  # Binary classification loss
-optimizer = optim.AdamW(model.parameters(), lr=0.01, weight_decay=5e-3)
-
-# ✅ Adaptive Learning Rate Scheduling
-onecycle_scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005, steps_per_epoch=len(train_loader), epochs=50)
-plateau_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=3, verbose=True)
-
 
 # ✅ Early Stopping
 class EarlyStopping:
@@ -81,72 +76,83 @@ class EarlyStopping:
                 return True
         return False
 
+# ✅ Adaptive Retraining Function
 
-early_stopping = EarlyStopping(patience=5, min_delta=0.0001)
+def adaptive_retrain_loop(interval_minutes=60):
+    while True:
+        print("\n🔄 Starting adaptive retraining...")
 
-# ✅ Train the model
-epochs = 50
-best_loss = float('inf')
+        # ✅ Load Data
+        train_loader, test_loader, train_dataset, test_dataset = get_dataloaders(
+            historical_train="data/train.csv",
+            historical_test="data/test.csv",
+            realtime_file="data/real_time_preprocessed.csv",
+            target_column="big_small_1",
+            batch_size=8
+        )
 
-for epoch in range(epochs):
-    model.train()
-    epoch_loss = 0
+        input_dim = train_dataset.tensors[0].shape[1]
+        model = MLP(input_dim=input_dim, dropout_rate=0.6)
+        criterion = FocalLoss()
+        optimizer = optim.AdamW(model.parameters(), lr=0.01, weight_decay=5e-3)
 
-    for X_batch, y_batch in train_loader:
-        optimizer.zero_grad()
-        outputs = model(X_batch).view(-1)
-        loss = criterion(outputs, y_batch.view(-1))
-        loss.backward()
-        optimizer.step()
-        epoch_loss += loss.item()
+        scheduler1 = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.005, steps_per_epoch=len(train_loader), epochs=50)
+        scheduler2 = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=3, verbose=True)
 
-    # ✅ Compute validation loss
-    model.eval()
-    val_loss = 0
-    with torch.no_grad():
-        for X_batch, y_batch in test_loader:
-            outputs = model(X_batch).view(-1)
-            val_loss += criterion(outputs, y_batch.view(-1)).item()
+        early_stopping = EarlyStopping(patience=5, min_delta=0.0001)
+        best_loss = float('inf')
 
-    val_loss /= len(test_loader)
+        for epoch in range(50):
+            model.train()
+            epoch_loss = 0
+            for X_batch, y_batch in train_loader:
+                optimizer.zero_grad()
+                outputs = model(X_batch).view(-1)
+                loss = criterion(outputs, y_batch.view(-1))
+                loss.backward()
+                optimizer.step()
+                epoch_loss += loss.item()
 
-    # ✅ Print training progress
-    print(f"Epoch {epoch+1} | Training Loss: {epoch_loss / len(train_loader):.4f} | Validation Loss: {val_loss:.4f}")
+            model.eval()
+            val_loss = 0
+            with torch.no_grad():
+                for X_batch, y_batch in test_loader:
+                    outputs = model(X_batch).view(-1)
+                    val_loss += criterion(outputs, y_batch.view(-1)).item()
+            val_loss /= len(test_loader)
 
-    # ✅ Step both schedulers
-    onecycle_scheduler.step()
-    plateau_scheduler.step(val_loss)
+            print(f"Epoch {epoch+1} | Training Loss: {epoch_loss / len(train_loader):.4f} | Validation Loss: {val_loss:.4f}")
+            scheduler1.step()
+            scheduler2.step(val_loss)
 
-    # ✅ Early stopping
-    if early_stopping(val_loss):
-        break
+            if val_loss < best_loss:
+                best_loss = val_loss
+                torch.save(model.state_dict(), "models/best_big_small_model.pth")
+                print("✅ Best model saved!")
 
-    # ✅ Save the best model
-    if val_loss < best_loss:
-        best_loss = val_loss
-        torch.save(model.state_dict(), "models/best_big_small_model.pth")
-        print("✅ Best model saved!")
+            if early_stopping(val_loss):
+                break
 
-# ✅ Save final model
-os.makedirs("models", exist_ok=True)
-torch.save(model.state_dict(), "models/big_small_model.pth")
-print("✅ Final Model Saved!")
+        torch.save(model.state_dict(), "models/big_small_model.pth")
+        print("✅ Final Model Saved!")
 
+        # ✅ Evaluation
+        def evaluate_model(model, test_loader):
+            model.eval()
+            correct, total = 0, 0
+            with torch.no_grad():
+                for X_batch, y_batch in test_loader:
+                    outputs = model(X_batch).view(-1)
+                    predictions = (torch.sigmoid(outputs) >= 0.5).float()
+                    correct += (predictions == y_batch.view(-1)).sum().item()
+                    total += y_batch.size(0)
+            print(f"🎯 Test Accuracy: {correct/total:.4f}")
 
-# ✅ Evaluate Model
-def evaluate_model(model, test_loader):
-    model.eval()
-    correct, total = 0, 0
-    with torch.no_grad():
-        for X_batch, y_batch in test_loader:
-            outputs = model(X_batch).view(-1)
-            predictions = (torch.sigmoid(outputs) >= 0.5).float()
-            correct += (predictions == y_batch.view(-1)).sum().item()
-            total += y_batch.size(0)
+        evaluate_model(model, test_loader)
 
-    accuracy = correct / total
-    print(f"🎯 Test Accuracy: {accuracy:.4f}")
+        print(f"⏳ Waiting {interval_minutes} minutes for next retraining...")
+        time.sleep(interval_minutes * 60)
 
-
-# ✅ Run evaluation
-evaluate_model(model, test_loader)
+# ✅ Start Adaptive Loop
+if __name__ == "__main__":
+    adaptive_retrain_loop(interval_minutes=60)
