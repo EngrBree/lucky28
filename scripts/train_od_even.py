@@ -111,12 +111,12 @@ for epoch in range(epochs):
         break
 
     if val_loss < early_stopping.best_loss:
-        torch.save(model.state_dict(), "models/best_model.pth")
+        torch.save(model.state_dict(), "best_odd_even_model.pth")
         print("✅ Best model saved!")
 
 # ✅ Save final model
 os.makedirs("models", exist_ok=True)
-torch.save(model.state_dict(), "models/odd_even_model.pth")
+torch.save(model.state_dict(), "models/c")
 print("✅ Final Model Saved!")
 
 # ✅ Evaluate the Model
