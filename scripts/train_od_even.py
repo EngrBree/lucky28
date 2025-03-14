@@ -16,7 +16,6 @@ import joblib
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.model_architecture import MLP
-from utils.focal_loss import FocalLoss
 
 REQUIRED_FEATURES = ['sum', 'sum_mod3', 'parity_last_digit', 'parity_sum_digits']
 
@@ -58,7 +57,7 @@ def get_dataloaders(historical_train, historical_test, realtime_file, target_col
 
     X_train = scaler.fit_transform(X_train_df[feature_subset])
     X_test = scaler.transform(X_test_df[feature_subset])
-    joblib.dump(scaler, "scripts/scaler.pkl")
+    joblib.dump(scaler, "scripts/odd_even_scaler.pkl")
 
     print("📊 Class Distribution (Real-Time + Historical):")
     print(pd.Series(y_train.flatten()).value_counts(normalize=True))

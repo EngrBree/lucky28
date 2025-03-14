@@ -16,7 +16,6 @@ import joblib
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from utils.model_architecture import MLP
-from utils.focal_loss import FocalLoss
 
 REQUIRED_FEATURES = ['sum', 'parity_sum_digits', 'rolling_sum_median', 'parity_last_digit', 'sum_mod3']
 
@@ -58,7 +57,7 @@ def get_dataloaders(historical_train, historical_test, realtime_file, target_col
 
     X_train = scaler.fit_transform(X_train_df[feature_subset])
     X_test = scaler.transform(X_test_df[feature_subset])
-    joblib.dump(scaler, "scripts/scaler.pkl")
+    joblib.dump(scaler, "scripts/big_small_scaler.pkl")
 
     print("📊 Class Distribution (Real-Time + Historical):")
     print(pd.Series(y_train.flatten()).value_counts(normalize=True))
@@ -203,7 +202,7 @@ def adaptive_retrain_loop(interval_minutes=60):
     torch.save(model.state_dict(), "models/big_small_model.pth")
     print("✅ Final Model Saved!")
     evaluate_model(model, test_loader, y_test)
-    evaluate_on_realtime_window(model, scaler=joblib.load("scripts/scaler.pkl"))
+    evaluate_on_realtime_window(model, scaler=joblib.load("scripts/big_small_scaler.pkl"))
 
 # ✅ Start Adaptive Retraining Loop
 if __name__ == "__main__":
