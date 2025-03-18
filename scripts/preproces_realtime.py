@@ -1,14 +1,22 @@
-# ✅ Updated preproces_realtime.py — Parity Features & Corrected Target Columns
+# ✅ Updated preproces_realtime.py — Parity Features & Dual Scaler Setup
 import pandas as pd
 import numpy as np
 import requests
 import time
 import joblib
+import os
 
 REALTIME_CSV = "data/real_time_preprocessed.csv"
 API_URL = "https://www.apigx.cn/token/c5c808c4f81511ef9a5eafbf7b4e6e4c/code/jnd28/rows/10.json"
 FETCH_INTERVAL = 600
 
+ODD_EVEN_SCALER_PATH = "scripts/odd_even_scaler.pkl"
+BIG_SMALL_SCALER_PATH = "scripts/big_small_scaler.pkl"
+ENCODER_PATH = "scripts/encoder.pkl"
+
+# Define feature sets
+odd_even_features = ["sum", "sum_mod3", "parity_last_digit", "parity_sum_digits"]
+big_small_features = ["sum", "parity_sum_digits", "rolling_sum_median", "parity_last_digit", "sum_mod3"]
 
 def fetch_realtime_draw():
     try:
@@ -35,45 +43,73 @@ def preprocess_and_update():
     if df is None:
         return
 
+    # ➕ Feature Engineering (same as in preprocessing script)
     df["rolling_sum_mean"] = df["sum"].rolling(window=3, min_periods=1).mean()
     df["rolling_sum_median"] = df["sum"].rolling(3, min_periods=1).median()
     df["lag1_sum"] = df["sum"].shift(1)
-    df['lag1_odd_even'] = df['odd_even_1'].shift(1)
-    df['lag1_big_small'] = df['big_small_1'].shift(1)
+    df["lag1_odd_even"] = df["odd_even_1"].shift(1)
+    df["lag1_big_small"] = df["big_small_1"].shift(1)
     df["diff1"] = df["num1"] - df["num2"]
     df["diff2"] = df["num2"] - df["num3"]
     df["sum_mod3"] = df["sum"] % 3
-
-    # ✅ Add parity features only
     df["last_digit"] = df["sum"] % 10
     df["sum_digits"] = df["sum"].astype(str).apply(lambda x: sum(int(ch) for ch in x))
     df["parity_last_digit"] = df["last_digit"] % 2
     df["parity_sum_digits"] = df["sum_digits"] % 2
 
     missing_cols = ['rolling_sum_mean', 'rolling_sum_median', 'lag1_sum', 'lag1_odd_even', 'lag1_big_small']
-    df[missing_cols] = df[missing_cols].fillna(df[missing_cols].median())
+    df[missing_cols] = df[missing_cols].fillna(df[missing_cols].median(numeric_only=True))
 
-    scaler = joblib.load("scripts/scaler.pkl")
-    numerical_features = [
-        "sum", "rolling_sum_mean", "lag1_sum", "diff1", "diff2",
-        "rolling_sum_median", "sum_mod3", "parity_last_digit", "parity_sum_digits"
-    ]
-    df[numerical_features] = scaler.transform(df[numerical_features])
+    # ✅ Load scalers
+    try:
+        odd_even_scaler = joblib.load(ODD_EVEN_SCALER_PATH)
+        big_small_scaler = joblib.load(BIG_SMALL_SCALER_PATH)
+    except Exception as e:
+        print(f"❌ Error loading scalers: {e}")
+        return
 
-    encoder = joblib.load("scripts/encoder.pkl")
-    categorical_features = ['lag1_odd_even', 'lag1_big_small']
-    encoded_cat = encoder.transform(df[categorical_features])
-    encoded_cat_df = pd.DataFrame(encoded_cat, columns=encoder.get_feature_names_out(categorical_features))
-    df = pd.concat([df.drop(columns=categorical_features).reset_index(drop=True), encoded_cat_df], axis=1)
+    # ✅ Apply each scaler to its own features
+    for col in odd_even_features:
+        if col not in df.columns:
+            df[col] = 0
+    for col in big_small_features:
+        if col not in df.columns:
+            df[col] = 0
 
     try:
-        existing_data = pd.read_csv(REALTIME_CSV)
-        df = pd.concat([existing_data, df], ignore_index=True)
-    except FileNotFoundError:
-        print("ℹ️ Creating new real-time dataset.")
+        df_odd_scaled = odd_even_scaler.transform(df[odd_even_features])
+        df_big_scaled = big_small_scaler.transform(df[big_small_features])
 
-    df.to_csv(REALTIME_CSV, index=False)
-    print(f"✅ Real-time data updated successfully in {REALTIME_CSV}")
+        # Optionally store scaled versions separately if needed
+        odd_scaled_df = pd.DataFrame(df_odd_scaled, columns=[f"oe_{col}" for col in odd_even_features])
+        big_scaled_df = pd.DataFrame(df_big_scaled, columns=[f"bs_{col}" for col in big_small_features])
+        df = pd.concat([df.reset_index(drop=True), odd_scaled_df, big_scaled_df], axis=1)
+    except Exception as e:
+        print(f"❌ Feature scaling error: {e}")
+        return
+
+    # ✅ Apply Encoder to lag features
+    try:
+        encoder = joblib.load(ENCODER_PATH)
+        cat_features = ["lag1_odd_even", "lag1_big_small"]
+        cat_encoded = encoder.transform(df[cat_features])
+        cat_df = pd.DataFrame(cat_encoded, columns=encoder.get_feature_names_out(cat_features))
+        df = pd.concat([df.drop(columns=cat_features).reset_index(drop=True), cat_df], axis=1)
+    except Exception as e:
+        print(f"❌ Encoder error: {e}")
+
+    # ✅ Save to CSV
+    try:
+        if os.path.exists(REALTIME_CSV):
+            old_data = pd.read_csv(REALTIME_CSV)
+            df = pd.concat([old_data, df], ignore_index=True)
+        else:
+            print("ℹ️ Creating new real-time dataset...")
+
+        df.to_csv(REALTIME_CSV, index=False)
+        print(f"✅ Real-time data updated successfully in {REALTIME_CSV}")
+    except Exception as e:
+        print(f"❌ Error saving real-time CSV: {e}")
 
 
 def start_continuous_fetching():

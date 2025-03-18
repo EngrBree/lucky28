@@ -121,12 +121,12 @@ def evaluate_on_realtime_window(model, scaler, window_size=200):
             print(f"⚠️ Not enough real-time data for evaluation window (only {len(df)} rows). Skipping...")
             return
         df = df.tail(window_size)
-        if "odd_even_1" not in df.columns:
-            print("⚠️ Target column 'odd_even_1' not found in real-time data. Skipping evaluation.")
+        if "big_small_1" not in df.columns:
+            print("⚠️ Target column 'big_small_1' not found in real-time data. Skipping evaluation.")
             return
 
         X_eval = df[REQUIRED_FEATURES].values
-        y_eval = df["odd_even_1"].values
+        y_eval = df["big_small_1"].values
 
         X_eval = scaler.transform(X_eval)
         X_eval_tensor = torch.tensor(X_eval, dtype=torch.float32)
@@ -146,7 +146,7 @@ def adaptive_retrain_loop(interval_minutes=60):
         historical_train="data/train.csv",
         historical_test="data/test.csv",
         realtime_file="data/real_time_preprocessed.csv",
-        target_column="odd_even_1",
+        target_column="big_small_1",
         feature_subset=REQUIRED_FEATURES,
         batch_size=16
     )
