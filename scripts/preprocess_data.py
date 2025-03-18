@@ -1,4 +1,4 @@
-# ✅ Updated preprocess_data.py — With Parity Feature Engineering
+# ✅ Updated preprocess_data.py — Cleaned Targets
 import os
 import pandas as pd
 import numpy as np
@@ -8,15 +8,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
 print("📂 Current Working Directory:", os.getcwd())
-
-FEATURES_BIG_SMALL = [
-    'sum', 'rolling_sum_mean', 'lag1_sum', 'lag1_big_small_1.0', 'diff1'
-]
-
-FEATURES_ODD_EVEN = [
-    'sum', 'rolling_sum_mean', 'lag1_sum', 'lag1_odd_even_1.0', 'diff2', 'rolling_sum_median', 'sum_mod3',
-    'parity_last_digit', 'parity_sum_digits'
-]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SCALER_PATH = os.path.join(BASE_DIR, "scaler.pkl")
@@ -29,13 +20,13 @@ def load_data(file_path):
     df['num2'] = df['code'].apply(lambda x: int(x[1]))
     df['num3'] = df['code'].apply(lambda x: int(x[2]))
     df['sum'] = df['num1'] + df['num2'] + df['num3']
-    df['odd_even'] = df['sum'] % 2
-    df['big_small'] = (df['sum'] >= 14).astype(int)
+    df['odd_even_1'] = df['sum'] % 2
+    df['big_small_1'] = (df['sum'] >= 14).astype(int)
     df['rolling_sum_mean'] = df['sum'].rolling(window=3, min_periods=1).mean()
     df['rolling_sum_median'] = df['sum'].rolling(3, min_periods=1).median()
     df['lag1_sum'] = df['sum'].shift(1)
-    df['lag1_odd_even'] = df['odd_even'].shift(1)
-    df['lag1_big_small'] = df['big_small'].shift(1)
+    df['lag1_odd_even'] = df['odd_even_1'].shift(1)
+    df['lag1_big_small'] = df['big_small_1'].shift(1)
     df['diff1'] = df['num1'] - df['num2']
     df['diff2'] = df['num2'] - df['num3']
     df['sum_mod3'] = df['sum'] % 3
@@ -47,7 +38,7 @@ def load_data(file_path):
     df['parity_sum_digits'] = df['sum_digits'] % 2
 
     missing_cols = ['rolling_sum_mean', 'rolling_sum_median', 'lag1_sum', 'lag1_odd_even', 'lag1_big_small']
-    df[missing_cols] = df[missing_cols].fillna(df[missing_cols].median())
+    df[missing_cols] = df[missing_cols].fillna(df[missing_cols].median(numeric_only=True))
     return df
 
 def preprocess_data(input_csv="data/newlucky28.csv", train_csv="data/train.csv", test_csv="data/test.csv"):
@@ -67,7 +58,7 @@ def preprocess_data(input_csv="data/newlucky28.csv", train_csv="data/train.csv",
     joblib.dump(scaler, SCALER_PATH)
     print(f"✅ Scaler saved at {SCALER_PATH}")
 
-    categorical_features = ['odd_even', 'big_small', 'lag1_odd_even', 'lag1_big_small']
+    categorical_features = ['lag1_odd_even', 'lag1_big_small']
     encoder = OneHotEncoder(drop='first', sparse_output=False)
     encoder.fit(train_df[categorical_features])
     train_encoded = encoder.transform(train_df[categorical_features])

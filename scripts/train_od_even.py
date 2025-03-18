@@ -202,7 +202,7 @@ def adaptive_retrain_loop(interval_minutes=60):
     torch.save(model.state_dict(), "models/odd_even_model.pth")
     print("✅ Final Model Saved!")
     evaluate_model(model, test_loader, y_test)
-    evaluate_on_realtime_window(model, scaler=joblib.load("scripts/scaler.pkl"))
+    evaluate_on_realtime_window(model, scaler=joblib.load("scripts/odd_even_scaler.pkl"))
 
 if __name__ == "__main__":
     adaptive_retrain_loop(interval_minutes=60)
