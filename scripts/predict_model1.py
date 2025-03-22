@@ -2,6 +2,7 @@
 
 import sys
 import os
+import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import torch
@@ -39,45 +40,58 @@ big_small_model.eval()
 # Define model-specific features
 ODD_EVEN_FEATURES = ['sum', 'sum_mod3', 'parity_last_digit', 'parity_sum_digits']
 BIG_SMALL_FEATURES = ['sum', 'parity_sum_digits', 'rolling_sum_median', 'parity_last_digit', 'sum_mod3']
+# API URL Template for fetching latest draw
+API_URL_TEMPLATE = "https://www.apigx.cn/token/c5c808c4f81511ef9a5eafbf7b4e6e4c/code/jnd28/rows/{rows}.json"
 
-# ---------------------------------------------
-# API URL for fetching latest draw
-API_URL = "https://www.apigx.cn/token/c5c808c4f81511ef9a5eafbf7b4e6e4c/code/jnd28/rows/20.json"
+def fetch_latest_draws(target_rows=100, batch_size=20):
+    """Fetches the latest lottery draws in multiple API requests (max 20 draws per request)."""
+    all_draws = []
+    num_requests = target_rows // batch_size  # How many times to request
 
-def fetch_latest_draws():
-    try:
-        response = requests.get(API_URL)
-        response.raise_for_status()
-        data = response.json()
-        draws = data.get("data", [])
+    for i in range(num_requests):
+        try:
+            print(f"🔄 Fetching batch {i+1}/{num_requests} ({batch_size} draws)...")
+            response = requests.get(API_URL_TEMPLATE.format(rows=batch_size))
+            response.raise_for_status()
+            data = response.json()
 
-        if not draws:
-            print("❌ No draws found in API response.")
-            return None
+            draws = data.get("data", [])
+            if not draws:
+                print("❌ No draws found in API response.")
+                break  # Stop if no more draws are available
 
-        df = pd.DataFrame(draws)
+            all_draws.extend(draws)  # Add new batch to list
+            time.sleep(1)  # Prevent hitting API limits too fast
 
-        print("🔍 Raw API data =", data)
-        print("🔍 Sample draw =", draws[0])
+        except Exception as e:
+            print(f"⚠️ Error fetching data: {e}")
+            break  # Stop on error
 
-        if "expect" in df.columns:
-            df["draw_id"] = df["expect"]
-        else:
-            df["draw_id"] = pd.to_datetime("now").strftime("%Y%m%d%H%M%S")
-
-        if "opencode" in df.columns:
-            df[["draw_number1", "draw_number2", "draw_number3"]] = df["opencode"].str.split(",", expand=True).astype(int)
-        else:
-            print("❌ 'opencode' field missing in API response.")
-            return None
-
-        df["sum"] = df["draw_number1"] + df["draw_number2"] + df["draw_number3"]
-
-        return df
-
-    except Exception as e:
-        print(f"⚠️ Error fetching data: {e}")
+    if not all_draws:
         return None
+
+    df = pd.DataFrame(all_draws)
+
+    # Debugging output
+    print("🔍 Raw API data =", all_draws[:2])  # Print first 2 draws for debugging
+
+    # Handle draw ID
+    if "expect" in df.columns:
+        df["draw_id"] = df["expect"]
+    else:
+        df["draw_id"] = pd.to_datetime("now").strftime("%Y%m%d%H%M%S")
+
+    # Extract numbers from 'opencode'
+    if "opencode" in df.columns:
+        df[["draw_number1", "draw_number2", "draw_number3"]] = df["opencode"].str.split(",", expand=True).astype(int)
+    else:
+        print("❌ 'opencode' field missing in API response.")
+        return None
+
+    # Compute sum
+    df["sum"] = df["draw_number1"] + df["draw_number2"] + df["draw_number3"]
+
+    return df
 
 def prepare_features(df):
     # Compute all needed features
@@ -112,6 +126,9 @@ def predict():
             print(f"⚠️ Missing feature: {feature} — auto-filled with 0.")
             df[feature] = 0
 
+    # ✅ Step 1: Print Raw Data for Debugging
+    print("📌 Debug: Raw Data After Feature Engineering\n", df.head())
+
     # Scale & predict using correct feature sets
     try:
         print("📌 Debug: Odd-Even Feature Values Before Scaling\n", df[ODD_EVEN_FEATURES].head())
@@ -126,55 +143,78 @@ def predict():
         print(f"⚠️ Scaling Error: {e}")
         return None
 
-    X_odd_even_tensor = torch.tensor(X_odd_even, dtype=torch.float32)
-    X_big_small_tensor = torch.tensor(X_big_small, dtype=torch.float32)
+    # ✅ Step 2: Check Shape Before Model Prediction
+    print(f"📌 Debug: Odd-Even Features Shape: {X_odd_even.shape}")
+    print(f"📌 Debug: Big-Small Features Shape: {X_big_small.shape}")
 
-    with torch.no_grad():
-        odd_even_probs = torch.sigmoid(odd_even_model(X_odd_even_tensor)).numpy().flatten()
-        big_small_probs = torch.sigmoid(big_small_model(X_big_small_tensor)).numpy().flatten()
-
-    predictions = []
-
-    # Set thresholds for the big-small model
-    upper_threshold = 0.9
-    lower_threshold = 0.1
-
-    for i, row in df.iterrows():
-        oe_prob = odd_even_probs[i]   # Odd-Even model probability
-        bs_prob = big_small_probs[i]    # Big-Small model probability
-
-        # Use big-small model's prediction if it is very confident:
-        if bs_prob > upper_threshold:
-            final_prediction = "big"
-            final_conf = bs_prob * 100
-        elif bs_prob < lower_threshold:
-            final_prediction = "small"
-            final_conf = (1 - bs_prob) * 100
-        else:
-            # Otherwise, fall back to the odd-even model's prediction:
-            if oe_prob > 0.5:
-                final_prediction = "Odd"
-                final_conf = oe_prob * 100
-            else:
-                final_prediction = "Even"
-                final_conf = (1 - oe_prob) * 100
-
-        predictions.append({
-            "Draw ID": row.get("draw_id", "Unknown"),
-            "Prediction": final_prediction,
-            "Accuracy (%)": round(final_conf, 2)
-        })
-
-    # Save predictions to CSV
-    prediction_df = pd.DataFrame(predictions)
-    output_path = "data/latest_prediction_with_percentages.csv"
+    # Ensure correct tensor shapes
     try:
-        prediction_df.to_csv(output_path, index=False)
-        print(f"✅ Prediction results saved to: {os.path.abspath(output_path)}")
+        X_odd_even_tensor = torch.tensor(X_odd_even, dtype=torch.float32)
+        X_big_small_tensor = torch.tensor(X_big_small, dtype=torch.float32)
     except Exception as e:
-        print(f"❌ Failed to save predictions: {e}")
+        print(f"❌ Tensor Conversion Error: {e}")
+        return None
 
-    return predictions
+    # ✅ Step 3: Check Model Output
+    with torch.no_grad():
+        try:
+            odd_even_probs = torch.sigmoid(odd_even_model(X_odd_even_tensor)).numpy().flatten()
+            big_small_probs = torch.sigmoid(big_small_model(X_big_small_tensor)).numpy().flatten()
+            print(f"📌 Debug: Odd-Even Model Probabilities:\n{odd_even_probs[:5]}")
+            print(f"📌 Debug: Big-Small Model Probabilities:\n{big_small_probs[:5]}")
+        except Exception as e:
+            print(f"❌ Model Prediction Error: {e}")
+            return None
+
+        predictions = []
+
+        for i, row in df.iterrows():
+            oe_prob = odd_even_probs[i]  
+            bs_prob = big_small_probs[i]  
+
+            print(f"📌 Debug: Row {i} - Odd/Even Probability = {oe_prob:.4f}, Big/Small Probability = {bs_prob:.4f}")
+
+            # 🎯 Optimized Thresholds
+            upper_threshold = 0.65
+            lower_threshold = 0.45
+
+            if bs_prob > upper_threshold:
+                final_prediction = "Big"
+                final_conf = min(bs_prob * 100, 95)
+            elif bs_prob < lower_threshold:
+                final_prediction = "Small"
+                final_conf = min((1 - bs_prob) * 105, 95)  # 🔥 Scale Small higher
+            else:
+                if oe_prob > 0.52:  # 🔥 Trigger Odd earlier
+                    final_prediction = "Odd"
+                    final_conf = min(oe_prob * 100, 95)
+                else:
+                    final_prediction = "Even"
+                    final_conf = min((1 - oe_prob) * 100, 95)
+
+            # Normalize confidence between 50% - 95%
+            final_conf = min(max(final_conf, 50), 95)
+
+            print(f"📌 Debug: Row {i} - Final Prediction = {final_prediction} ({final_conf:.2f}%)")
+
+            predictions.append({
+                "Draw ID": row.get("draw_id", "Unknown"),
+                "Final Prediction": final_prediction,
+                "Confidence (%)": round(final_conf, 2),
+            })
+
+        # ✅ Save final predictions to CSV
+        output_path = "data/final_predictions.csv"
+        prediction_df = pd.DataFrame(predictions)
+        
+        try:
+            prediction_df.to_csv(output_path, index=False)
+            print(f"✅ Final predictions saved to: {os.path.abspath(output_path)}")
+        except Exception as e:
+            print(f"❌ Failed to save predictions: {e}")
+
+        return predictions
+
 
 if __name__ == "__main__":
     predict()
