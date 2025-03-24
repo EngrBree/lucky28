@@ -6,7 +6,6 @@ import torch.optim as optim
 import pandas as pd
 import os
 import sys
-import time
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, confusion_matrix
@@ -63,16 +62,31 @@ def get_dataloaders(historical_train, historical_test, realtime_file, target_col
     print(pd.Series(y_train.flatten()).value_counts(normalize=True))
 
     y_train_flat = y_train.flatten()
-    class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train_flat), y=y_train_flat)
+
+    # Compute class weights
+    class_weights = compute_class_weight(class_weight='balanced', 
+                                        classes=np.unique(y_train_flat), 
+                                        y=y_train_flat)
     class_weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
+
+    # Ensure proper pos_weight calculation
+    pos_weight = torch.tensor([class_weights[1] / class_weights[0]], dtype=torch.float32)
+
+    # Define weighted loss function globally
     global weighted_loss_fn
-    weighted_loss_fn = nn.BCEWithLogitsLoss(pos_weight=class_weights_tensor[1])
+    weighted_loss_fn = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    train_dataset = TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.float32))
-    test_dataset = TensorDataset(torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test, dtype=torch.float32))
+    # Create TensorDatasets
+    train_dataset = TensorDataset(torch.tensor(X_train, dtype=torch.float32), 
+                                torch.tensor(y_train, dtype=torch.float32))
+    test_dataset = TensorDataset(torch.tensor(X_test, dtype=torch.float32), 
+                                torch.tensor(y_test, dtype=torch.float32))
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0, drop_last=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0, drop_last=True)
+    # Create DataLoaders
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, 
+                            num_workers=0, drop_last=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, 
+                            num_workers=0, drop_last=True)
 
     return train_loader, test_loader, train_dataset, test_dataset, y_test
 

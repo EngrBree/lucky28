@@ -37,11 +37,11 @@ big_small_model.eval()
 
 # Define model-specific features
 odd_even_features = ['sum', 'sum_mod3', 'parity_last_digit', 'parity_sum_digits']
-big_small_features = ['sum', 'parity_sum_digits', 'rolling_sum_median', 'parity_last_digit', 'sum_mod3']
+big_small_features = ['sum', 'last_digit', 'sum_digits', 'sum_mod3','rolling_sum_median']
 
 # ---------------------------------------------
 # API URL for fetching latest draw
-API_URL = "https://www.apigx.cn/token/c5c808c4f81511ef9a5eafbf7b4e6e4c/code/jnd28/rows/20.json"
+API_URL = "https://www.apigx.cn/token/81dc4724ff3111ef8d0c01bd2828daeb/code/jnd28/rows/20.json"
 
 def fetch_latest_draws():
     try:

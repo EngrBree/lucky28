@@ -1,0 +1,502 @@
+[
+    {
+        "Draw ID": "3265209",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.88999938964844
+    },
+    {
+        "Draw ID": "3265208",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.9000015258789
+    },
+    {
+        "Draw ID": "3265207",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.19000244140625
+    },
+    {
+        "Draw ID": "3265206",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265205",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265204",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.94999694824219
+    },
+    {
+        "Draw ID": "3265203",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265202",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265201",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.5199966430664
+    },
+    {
+        "Draw ID": "3265200",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265199",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265198",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265197",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265196",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.41999816894531
+    },
+    {
+        "Draw ID": "3265195",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.9800033569336
+    },
+    {
+        "Draw ID": "3265194",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265193",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265192",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265191",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265190",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265209",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.95999908447266
+    },
+    {
+        "Draw ID": "3265208",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.91000366210938
+    },
+    {
+        "Draw ID": "3265207",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.19000244140625
+    },
+    {
+        "Draw ID": "3265206",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265205",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265204",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.94999694824219
+    },
+    {
+        "Draw ID": "3265203",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265202",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265201",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.5199966430664
+    },
+    {
+        "Draw ID": "3265200",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265199",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265198",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265197",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265196",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.41999816894531
+    },
+    {
+        "Draw ID": "3265195",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.9800033569336
+    },
+    {
+        "Draw ID": "3265194",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265193",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265192",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265191",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265190",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265209",
+        "Prediction": "Even",
+        "Accuracy (%)": 99.95999908447266
+    },
+    {
+        "Draw ID": "3265208",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.91000366210938
+    },
+    {
+        "Draw ID": "3265207",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.19000244140625
+    },
+    {
+        "Draw ID": "3265206",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265205",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265204",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.94999694824219
+    },
+    {
+        "Draw ID": "3265203",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265202",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265201",
+        "Prediction": "Even",
+        "Accuracy (%)": 99.5199966430664
+    },
+    {
+        "Draw ID": "3265200",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265199",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265198",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265197",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265196",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.41999816894531
+    },
+    {
+        "Draw ID": "3265195",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.9800033569336
+    },
+    {
+        "Draw ID": "3265194",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265193",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265192",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265191",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265190",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265209",
+        "Prediction": "Even",
+        "Accuracy (%)": 99.95999908447266
+    },
+    {
+        "Draw ID": "3265208",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.91000366210938
+    },
+    {
+        "Draw ID": "3265207",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.19000244140625
+    },
+    {
+        "Draw ID": "3265206",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265205",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265204",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.94999694824219
+    },
+    {
+        "Draw ID": "3265203",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265202",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265201",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.5199966430664
+    },
+    {
+        "Draw ID": "3265200",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265199",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265198",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265197",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265196",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.41999816894531
+    },
+    {
+        "Draw ID": "3265195",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.9800033569336
+    },
+    {
+        "Draw ID": "3265194",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265193",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265192",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265191",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265190",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265209",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.95999908447266
+    },
+    {
+        "Draw ID": "3265208",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.91000366210938
+    },
+    {
+        "Draw ID": "3265207",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.19000244140625
+    },
+    {
+        "Draw ID": "3265206",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265205",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265204",
+        "Prediction": "Odd",
+        "Accuracy (%)": 99.94999694824219
+    },
+    {
+        "Draw ID": "3265203",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265202",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265201",
+        "Prediction": "Even",
+        "Accuracy (%)": 99.5199966430664
+    },
+    {
+        "Draw ID": "3265200",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265199",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265198",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265197",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265196",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.41999816894531
+    },
+    {
+        "Draw ID": "3265195",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.9800033569336
+    },
+    {
+        "Draw ID": "3265194",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265193",
+        "Prediction": "Small",
+        "Accuracy (%)": 99.25
+    },
+    {
+        "Draw ID": "3265192",
+        "Prediction": "Even",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265191",
+        "Prediction": "Big",
+        "Accuracy (%)": 100.0
+    },
+    {
+        "Draw ID": "3265190",
+        "Prediction": "Odd",
+        "Accuracy (%)": 100.0
+    }
+]
