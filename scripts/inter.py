@@ -8,10 +8,19 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PyQt5.QtCore import QThread, pyqtSignal, QRunnable, QThreadPool, QObject
+import datetime
 
-API_URL = "http://127.0.0.1:8000/predict/"  # FastAPI endpoint
+API_URL = "http://127.0.0.1:8000/predict/" 
+
+def format_draw_time(self, timestamp_str):
+    try:
+        return timestamp_str.split(" ")[1]  # Extract HH:MM:SS part
+    except:
+        return timestamp_str
+
 
 class FastAPIServer(QThread):
+    
     started_signal = pyqtSignal(str)
 
     def __init__(self):
@@ -100,6 +109,7 @@ class Lucky28PredictionApp(QtWidgets.QMainWindow):
             "Performance Metrics": "性能指标",
             "Settings & Log": "设置和日志",
             "Draw ID": "抽奖编号",
+            "Draw Time": "开奖时间",
             "Prediction": "预测结果",
             "Accuracy (%)": "准确率 (%)",
             "Live prediction updates will appear here.": "实时预测更新将显示在此处。",
@@ -219,6 +229,7 @@ class Lucky28PredictionApp(QtWidgets.QMainWindow):
         self.tabs.setTabText(3, self.translate("Settings & Log"))
         self.table.setHorizontalHeaderLabels([
             self.translate("Draw ID"),
+            self.translate("Draw Time"),
             self.translate("Prediction"),
             self.translate("Accuracy (%)")
         ])
@@ -228,11 +239,18 @@ class Lucky28PredictionApp(QtWidgets.QMainWindow):
         self.loader.setWindowTitle(self.translate("Please wait"))
         self.loader.setLabelText(self.translate("Processing..."))
         self.btn_translate.setText(self.translate("Translate to English") if self.translated else self.translate("Translate to Chinese"))
+    
+    def format_timestamp(timestamp_str):
+        try:
+            dt = datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+            return dt.strftime("%B %d, %Y – %I:%M %p")
+        except:
+            return timestamp_str
 
     def initPredictionTab(self):
         layout = QtWidgets.QVBoxLayout(self.tab_predictions)
-        self.table = QtWidgets.QTableWidget(20, 3)
-        self.table.setHorizontalHeaderLabels(["Draw ID", "Prediction", "Accuracy (%)"])
+        self.table = QtWidgets.QTableWidget(20, 4)
+        self.table.setHorizontalHeaderLabels(["Draw ID", "Draw Time", "Prediction", "Accuracy (%)"])
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
@@ -293,8 +311,16 @@ class Lucky28PredictionApp(QtWidgets.QMainWindow):
         self.table.setRowCount(len(predictions))
         for row, prediction in enumerate(predictions):
             self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(prediction.get("Draw ID", ""))))
-            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(prediction.get("Prediction", "")))
-            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(f"{prediction.get('Accuracy (%)', '')}%"))
+            draw_time = self.format_draw_time(str(prediction.get("Timestamp", "")))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(draw_time))  # Show only HH:MM:SS
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(prediction.get("Prediction", "")))
+            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(f"{prediction.get('Accuracy (%)', '')}%"))
+    
+    def format_draw_time(self, timestamp_str):
+        try:
+            return timestamp_str.split(" ")[1]
+        except:
+            return timestamp_str
 
 
     

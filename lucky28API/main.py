@@ -13,7 +13,6 @@ app = FastAPI()
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Lucky28 Prediction API"}
-
 @app.post("/predict/")
 def run_prediction():
     predictions = predict()
@@ -40,19 +39,21 @@ def run_prediction():
         if draw_row.empty:
             actual_size = "Unknown"
             actual_parity = "Unknown"
+            draw_time = ""
         else:
             draw_numbers = draw_row[["num1", "num2", "num3"]].values.flatten().tolist()
             total = sum(draw_numbers)
             actual_size = "Big" if total >= 14 else "Small"
             actual_parity = "Even" if total % 2 == 0 else "Odd"
+            draw_time = draw_row["opentime"].values[0]  # ✅ Add Draw Time from opentime
 
         results.append({
             "Draw ID": draw_id,
+            "Timestamp": draw_time,  # ✅ Add Timestamp field here
             "Prediction": pred.get("Prediction", "N/A"),
-            "Accuracy (%)": float(pred.get("Accuracy (%)", 0)),  # ✅ FIXED HERE
+            "Accuracy (%)": float(pred.get("Accuracy (%)", 0)),
             "Actual Size": actual_size,
             "Actual Parity": actual_parity
         })
-
 
     return results
